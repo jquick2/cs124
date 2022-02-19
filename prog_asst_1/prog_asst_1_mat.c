@@ -5,59 +5,30 @@
 #include <time.h>
 #include <assert.h>
 
-#include "graph.h"
-
-
-
-
-struct adj_list_node {
-	int out_node;
-	float weight;
-};
+#include "graph_mat_rep.h"
 
 
 struct graph {
 	int n_v;
 	int n_e;
-	struct adj_list {
-		int d;
-		int len;
-		char is_sorted;
-		// int list[1];
-		adj_list_node* list[1];
-	} *alist[1];
+	float* adj_matrix;
 };
 
 Graph create_graph(int n) {
 	Graph g;
-	int i;
 
-	g = malloc(sizeof(struct graph) + sizeof(struct adj_list *) * (n-1));
+	g = malloc(sizeof(struct graph));
 	assert(g);
 
 	g->n_v = n;
 	g->n_e = 0;
-
-	for (int i = 0; i < n; i++) {
-		g->alist[i] = malloc(sizeof(struct adj_list));
-		assert(g->alist[i]);
-
-		g->alist[i]->d = 0;
-		g->alist[i]->len = 1;
-		g->alist[i]->is_sorted = 1;
-	}
-
+	g->adj_matrix = malloc(sizeof(float) * n *n);
 	return g;
 }
 
 
 void destroy_graph(Graph g) {
-	for (int i = 0; i < g->n_v; i++) {
-		for (int j = 0; j < g->alist[i]->len; j++) {
-			free(g->alist[i]->list[j]);
-		}
-		free(g->alist[i]);
-	}
+	free(g->adj_matrix);
 	free(g);
 }
 
@@ -68,21 +39,16 @@ void add_edge(Graph g, int node_start, int node_end, float weight) {
 	assert(node_end >= 0);
 	assert(node_end < g->n_v);
 
-
-	while(g->alist[node_start]->d >= g->alist[node_start]->len) {
-		g->alist[node_start]->len *= 2;
-		g->alist[node_start] = realloc(g->alist[node_start],sizeof(struct adj_list) + 
-			sizeof(adj_list_node*) * (g->alist[node_start]->len -1));
+	if (node_end > node_start) {
+		*((g->adj_matrix + node_start*(g->n_v)) + node_end) = weight;
 	}
-
-	//g->alist[node_start]->list[g->alist[node_start]->d++] = node_end;
-	adj_list_node* new_node = malloc(sizeof(adj_list_node));
-	g->alist[node_start]->list[g->alist[node_start]->d++] = new_node;
-
-	new_node-> out_node = node_end;
-	new_node-> weight = weight;
-	g->alist[node_start]->is_sorted = 0;
-
+	else if (node_start < node_end) {
+		*((g->adj_matrix + node_end*(g->n_v)) + node_start) = weight;
+	}
+	else {
+		return;
+	}
+	
 	g->n_e++;
 }
 
@@ -94,11 +60,11 @@ int count_edges(Graph g) {
 	return g->n_e;
 }
 
-int graph_out_degree(Graph g, int node) {
+/*int graph_out_degree(Graph g, int node) {
 	assert(node >= 0);
 	assert(node < g->n_v);
 	return g->alist[node]->d;
-}
+}*/
 
 float graph_has_edge(Graph g,int node_start,int node_end) {
 	assert(node_start >= 0);
@@ -106,20 +72,15 @@ float graph_has_edge(Graph g,int node_start,int node_end) {
 	assert(node_end >= 0);
 	assert(node_end < g->n_v);
 
-	int tmp;
-	if (node_start > node_end) {
-		tmp = node_start;
-		node_start = node_end;
-		node_end = tmp;
+	float weight = 0;
+	if (node_start < node_end) {
+		weight = *((g->adj_matrix + node_start*(g->n_v)) + node_end);
+	}
+	else if (node_end < node_start) {
+		weight = *((g->adj_matrix + node_end*(g->n_v)) + node_start);
 	}
 
-	for (int i = 0; i < g->alist[node_start]->d; i++) {
-		if (g->alist[node_start]->list[i]->out_node == node_end) {
-			return g->alist[node_start]->list[i]->weight;
-		}
-	}
-
-	return 0;
+	return weight;
 }
 
 
@@ -172,7 +133,9 @@ int main() {
 	/*int test = rand_gen(1);
 	printf("%d\n",test);*/
 
-	Graph test_graph = initialize_full_graph(10000);
+	Graph test_graph = initialize_full_graph(20000);
+
+	printf("done\n");
 
 	for (int i = 0; i < test_graph->n_v; i++) {
 		for (int j = 0; j < test_graph->n_v; j++) {
