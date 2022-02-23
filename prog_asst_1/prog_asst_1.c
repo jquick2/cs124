@@ -4,8 +4,10 @@
 #include <math.h>
 #include <time.h>
 #include <assert.h>
+#include <limits.h>
 
 #include "graph.h"
+#include "fib_heap.h"
 
 
 
@@ -23,6 +25,9 @@ struct graph {
 		int d;
 		int len;
 		char is_sorted;
+
+		int key;
+		int pi;
 		// int list[1];
 		adj_list_node* list[1];
 	} *alist[1];
@@ -45,6 +50,9 @@ Graph create_graph(int n) {
 		g->alist[i]->d = 0;
 		g->alist[i]->len = 1;
 		g->alist[i]->is_sorted = 1;
+
+		g->alist[i]->key = INT_MAX;
+		g->alist[i]->pi = -1;
 	}
 
 	return g;
@@ -123,6 +131,14 @@ float graph_has_edge(Graph g,int node_start,int node_end) {
 }
 
 
+void prim_shortest(Graph g, int node_start) {
+	assert(node_start >= 0);
+	assert(node_start < g->n_v);
+
+	g->alist[node_start] = 0;
+}
+
+
 double cust_rand()
 {
     return (double)rand() / (double)RAND_MAX ;
@@ -147,7 +163,7 @@ int rand_gen(int n) {
 void print_graph_edge_check(Graph g, int node_start, int node_end) {
 	float weight = graph_has_edge(g,node_start,node_end);
 	if (weight > 0) {
-		//printf("Has edge (%d, %d) with weight %f\n",node_start,node_end,weight);
+		printf("Has edge (%d, %d) with weight %f\n",node_start,node_end,weight);
 	}
 	return;
 }
@@ -169,14 +185,19 @@ int main() {
 	srand(time(NULL));
 	cust_rand();
 
+	FIB_HEAP *H = insertion_procedure(5);
+	print_heap(H->min);
+
 	/*int test = rand_gen(1);
 	printf("%d\n",test);*/
 
-	Graph test_graph = initialize_full_graph(10000);
+	//Graph test_graph = initialize_full_graph(10);
 
-	for (int i = 0; i < test_graph->n_v; i++) {
+	/*for (int i = 0; i < test_graph->n_v; i++) {
 		for (int j = 0; j < test_graph->n_v; j++) {
 			print_graph_edge_check(test_graph,i,j);
 		}
-	}
+	}*/
+
+	//prim_shortest(test_graph,0);
 }
