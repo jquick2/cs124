@@ -5,6 +5,7 @@
 #include <time.h>
 #include <assert.h>
 #include <limits.h>
+#include <float.h>
 
 #include "graph.h"
 #include "fib_heap.h"
@@ -26,8 +27,10 @@ struct graph {
 		int len;
 		char is_sorted;
 
-		int key;
+		float key;
 		int pi;
+		bool in_q;
+		NODE* node_addr;
 		// int list[1];
 		adj_list_node* list[1];
 	} *alist[1];
@@ -51,8 +54,10 @@ Graph create_graph(int n) {
 		g->alist[i]->len = 1;
 		g->alist[i]->is_sorted = 1;
 
-		g->alist[i]->key = INT_MAX;
 		g->alist[i]->pi = -1;
+		g->alist[i]->key = FLT_MAX;
+		g->alist[i]->in_q = true;
+		g->alist[i]->node_addr = NULL;
 	}
 
 	return g;
@@ -127,15 +132,72 @@ float graph_has_edge(Graph g,int node_start,int node_end) {
 		}
 	}
 
+
 	return 0;
 }
 
 
 void prim_shortest(Graph g, int node_start) {
+	int min_node_id;
+	int out_vert;
+	bool in_q;
+
 	assert(node_start >= 0);
 	assert(node_start < g->n_v);
 
-	g->alist[node_start] = 0;
+	// Initialize Fib Heap
+	FIB_HEAP *Q = make_fib_heap();
+
+	g->alist[node_start]->node_addr = insertion(Q,NULL,0,node_start);
+	g->alist[node_start]->key = 0;
+
+	for(int i = 0; i < g->n_v; i++) {
+		if (node_start != i) {
+			g->alist[i]->node_addr = insertion(Q,NULL,g->alist[i]->key,i);
+		}
+		g->alist[i]->in_q = true;
+	}
+
+
+	while(Q->min != NULL) {
+		NODE* min_node = extract_min(Q);
+
+		min_node_id = min_node->vert_id;
+		g->alist[min_node_id]->in_q = false;
+
+		//printf("Vertex id: %d\n",min_node->vert_id);
+
+		for(int i = 0; i < g->alist[min_node_id]->d; i++) {
+			out_vert = g->alist[min_node_id]->list[i]->out_node;
+			in_q = g->alist[out_vert]->in_q;
+			//printf("%d In Q: %d\n",out_vert,g->alist[out_vert]->in_q);
+			if (in_q && g->alist[min_node_id]->list[i]->weight < g->alist[out_vert]->key) {
+				// Update both fib_heap and graph storage of key
+				g->alist[out_vert]->key = g->alist[min_node_id]->list[i]->weight;
+				g->alist[out_vert]->pi = min_node_id;
+				//printf("here2\n");
+				decrease_key(Q,g->alist[out_vert]->node_addr,g->alist[out_vert]->key);
+			}
+		}
+	}
+}
+
+float prim_stats(Graph g) {
+	int pred;
+	float max_edge,weight;
+	for (int i = 0; i < g->n_v; i++) {
+		pred = g->alist[i]->pi;
+
+		if (pred != -1) {
+			//printf("Edge in Tree: (%d,%d), weight %f\n",pred,i,graph_has_edge(g,pred,i));
+			weight = graph_has_edge(g,pred,i);
+			if (max_edge < weight) {
+				max_edge = weight;
+			}
+		}
+	}
+
+	return max_edge;
 }
 
 
@@ -174,7 +236,9 @@ Graph initialize_full_graph(int n) {
 
 	for (int i = 0; i < n; i++) {
 		for (int j = i + 1; j < n; j++) {
-			add_edge(full_graph, i,j,cust_rand());
+			float weight = cust_rand();
+			add_edge(full_graph, i,j,weight);
+			add_edge(full_graph, j,i,weight);
 		}
 	}
 
@@ -182,22 +246,28 @@ Graph initialize_full_graph(int n) {
 }
 
 int main() {
-	srand(time(NULL));
-	cust_rand();
-
-	FIB_HEAP *H = insertion_procedure(5);
-	print_heap(H->min);
-
-	/*int test = rand_gen(1);
-	printf("%d\n",test);*/
-
-	//Graph test_graph = initialize_full_graph(10);
-
 	/*for (int i = 0; i < test_graph->n_v; i++) {
-		for (int j = 0; j < test_graph->n_v; j++) {
+		for (int j = i + 1; j < test_graph->n_v; j++) {
 			print_graph_edge_check(test_graph,i,j);
 		}
 	}*/
+	srand(time(NULL));
+	cust_rand();
 
-	//prim_shortest(test_graph,0);
+	float max_overall_edge,max_tmp;
+	int iters = 1000;
+	int n_vertices = 333;
+	for(int it = 0; it < iters; it++) {
+		Graph graph = initialize_full_graph(n_vertices);
+
+		prim_shortest(graph,0);
+		max_tmp = prim_stats(graph);
+		if (max_overall_edge < max_tmp) {
+			max_overall_edge = max_tmp;
+		}
+	}
+	printf("Max for %d Vertices Over %d iterations: %f\n",n_vertices,iters,max_overall_edge);
+
 }
+
+
