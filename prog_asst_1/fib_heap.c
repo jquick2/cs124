@@ -1,3 +1,14 @@
+/*
+	Basic inspiration for the Fib Heap approach can be attributed to
+
+	https://setscholars.net/algorithm-in-c-fibonacci-heap/
+
+	However, the implementation of consolidate was particularly wrong (as was the degree
+	calculation), and there were several aspects of the fib_heap/fib_node structs that had 
+	to be changed to meet the specific use case.
+*/
+
+
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -28,26 +39,10 @@ NODE* insertion(FIB_HEAP *H, NODE *new, float val,int vert_id);
 NODE *extract_min(FIB_HEAP *H);
 void consolidate(FIB_HEAP *H);
 void fib_heap_link(FIB_HEAP *H, NODE* y, NODE *x);
-NODE *find_min_node(FIB_HEAP *H);
 void decrease_key(FIB_HEAP *H,NODE *node, float key);
 void cut(FIB_HEAP *H, NODE *node_to_be_decrease, NODE *parent_node);
 void cascading_cut(FIB_HEAP *H, NODE *parent_node);
 void delete_node(FIB_HEAP *H, float key);
-
-void print_heap(NODE* n) {
-	NODE *x;
-	for (x = n;; x = x->right_sibling) {
-		if (x->child == NULL) {
-			printf("node with no child (%d) \n",x->vert_id);
-		} else {
-			printf("NODE(%d) with child (%d) \n", x->vert_id, x->child->vert_id);
-			print_heap(x->child);
-		}
-		if (x->right_sibling == n) {
-			break;
-		}
-	}
-}
 
 FIB_HEAP *make_fib_heap(){
 	
@@ -87,103 +82,9 @@ NODE* insertion(FIB_HEAP *H, NODE *new, float val, int vert_id) {
 	return new;
 }
 
-NODE *find_min_node(FIB_HEAP *H) {
-	if (H == NULL) {
-		return NULL;
-	}
-	else {
-		return H->min;
-	}
-}
-
-FIB_HEAP *unionHeap(FIB_HEAP *H1, FIB_HEAP *H2) {
-	FIB_HEAP *Hnew;
-	Hnew = make_fib_heap();
-	Hnew->min = H1->min;
-
-	NODE *temp1,*temp2;
-	temp1 = Hnew->min->right_sibling;
-	temp2 = H2->min->left_sibling;
-
-	Hnew->min->right_sibling->left_sibling = H2->min->left_sibling;
-	Hnew->min->right_sibling = H2->min;
-	H2->min->left_sibling = Hnew->min;
-	temp2->right_sibling = temp1;
-
-	if ((H1->min == NULL) || (H2->min != NULL && H2->min->key < H1->min->key)) {
-		Hnew->min = H2->min;
-	}
-	Hnew->n = H1->n + H2->n;
-	return Hnew;
-}
-
 // Bound it by golden (actually log 1.5, little looser, because meh)
 int cal_degree(int n) {
 	return floor(log(n)/(log(1.61803)));
-}
-
-void consolidate_old(FIB_HEAP *H) {
-	int degree,i,d;
-	degree = cal_degree(H->n);
-	NODE *A[degree+1], *x, *y, *z;
-	for (i = 0; i <= degree; i++) {
-		A[i] = NULL;
-	}
-	x = H->min;
-
-	printf("Degree %d\n",degree);
-	do {
-		d = x->degree;
-		printf("D %d\n",d);
-		while (A[d] != NULL) {
-			y = A[d];
-			
-			if (x->key > y->key) {
-				NODE *tmp;
-				tmp = x;
-				x = y;
-				y = tmp;
-			}
-
-			if (y == H->min)
-				H->min = x;
-			fib_heap_link(H,y,x);
-			if (y->right_sibling == x)
-				H->min = x;
-			A[d] = NULL;
-			d++;
-		}
-		
-		
-		A[d] = x;
-		x = x->right_sibling;
-	} while (x != H->min);
-
-
-
-	H->min = NULL;
-	for (i = 0; i < degree; i++) {
-		if (A[i] != NULL) {
-			A[i]->left_sibling = A[i];
-			A[i]->right_sibling = A[i];
-			if (H->min == NULL) {
-				H->min = A[i];
-			} else {
-				H->min->left_sibling->right_sibling = A[i];
-				A[i]->right_sibling = H->min;
-				A[i]->left_sibling = H->min->left_sibling;
-				H->min->left_sibling = A[i];
-				if (A[i]->key < H->min->key) {
-					H->min = A[i];
-				}
-			}
-			if (H->min == NULL) {
-				H->min = A[i];
-			} else if (A[i]->key < H->min->key) {
-				H->min = A[i];
-			}
-		}
-	}
 }
 
 void consolidate(FIB_HEAP *H) {
@@ -370,20 +271,6 @@ void find_node (FIB_HEAP *H, NODE *n, float key, float new_key) {
 	find_use->visited = false;
 }
 
-FIB_HEAP *insertion_procedure(int no_of_nodes){
-	FIB_HEAP *temp;
-	int ele, i;
-	NODE *new_node;
-	temp = (FIB_HEAP *)malloc(sizeof(FIB_HEAP));
-	temp = NULL;
-	if (temp == NULL) {
-		temp = make_fib_heap();
-	}
-	for (i = 1; i <= no_of_nodes; i++) {
-		insertion(temp, new_node, i,0); // deprecated/not used 
-	}
-	return temp;
-}
 
 void delete_node(FIB_HEAP *H, float dec_key) {
 	NODE *p = NULL;

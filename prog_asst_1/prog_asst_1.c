@@ -11,13 +11,10 @@
 #include "fib_heap.h"
 
 
-
-
 struct adj_list_node {
 	int out_node;
 	float weight;
 };
-
 
 struct graph {
 	int n_v;
@@ -64,7 +61,7 @@ Graph create_graph(int n) {
 }
 
 
-void destroy_graph(Graph g) {
+void delete_graph(Graph g) {
 	for (int i = 0; i < g->n_v; i++) {
 		for (int j = 0; j < g->alist[i]->len; j++) {
 			free(g->alist[i]->list[j]);
@@ -97,20 +94,6 @@ void add_edge(Graph g, int node_start, int node_end, float weight) {
 	g->alist[node_start]->is_sorted = 0;
 
 	g->n_e++;
-}
-
-int count_vertices(Graph g) {
-	return g->n_v;
-}
-
-int count_edges(Graph g) {
-	return g->n_e;
-}
-
-int graph_out_degree(Graph g, int node) {
-	assert(node >= 0);
-	assert(node < g->n_v);
-	return g->alist[node]->d;
 }
 
 float graph_has_edge(Graph g,int node_start,int node_end) {
@@ -182,92 +165,135 @@ void prim_shortest(Graph g, int node_start) {
 	}
 }
 
-float prim_stats(Graph g) {
+float prim_stats(Graph g,float* edge_sum) {
 	int pred;
 	float max_edge,weight;
+	int num_edges = 0;
 	for (int i = 0; i < g->n_v; i++) {
 		pred = g->alist[i]->pi;
 
 		if (pred != -1) {
-			//printf("Edge in Tree: (%d,%d), weight %f\n",pred,i,graph_has_edge(g,pred,i));
 			weight = graph_has_edge(g,pred,i);
+			if (weight != 0) {
+				num_edges++;
+			}
+			*edge_sum = *edge_sum + weight;
 			if (max_edge < weight) {
 				max_edge = weight;
 			}
 		}
 	}
 
+	if (num_edges + 1 != g->n_v) {
+		printf("Non complete tree.\n");
+	}
+
 	return max_edge;
 }
-
 
 double cust_rand()
 {
     return (double)rand() / (double)RAND_MAX ;
 }
 
-void generate_n_vert_graph() {
-	return;
-}
-
-// Generate n-dim array in the unit n-space
-int rand_gen(int n) {
-
-	printf("%f\n",cust_rand());
-	printf("%f\n",cust_rand());
-	printf("%f\n",cust_rand());
-
-
-	return 0;
-}
-
-
-void print_graph_edge_check(Graph g, int node_start, int node_end) {
-	float weight = graph_has_edge(g,node_start,node_end);
-	if (weight > 0) {
-		printf("Has edge (%d, %d) with weight %f\n",node_start,node_end,weight);
-	}
-	return;
-}
-
-
-Graph initialize_full_graph(int n) {
+Graph initialize_full_graph(int n, float cutoff) {
 	Graph full_graph = create_graph(n);
 
 	for (int i = 0; i < n; i++) {
 		for (int j = i + 1; j < n; j++) {
+
 			float weight = cust_rand();
-			add_edge(full_graph, i,j,weight);
-			add_edge(full_graph, j,i,weight);
+
+			if (weight < cutoff) {
+				add_edge(full_graph, i,j,weight);
+				add_edge(full_graph, j,i,weight);
+			}
+
 		}
 	}
 
 	return full_graph;	
 }
 
-int main() {
-	/*for (int i = 0; i < test_graph->n_v; i++) {
-		for (int j = i + 1; j < test_graph->n_v; j++) {
-			print_graph_edge_check(test_graph,i,j);
+
+Graph initialize_full_multi_graph(int n, float cutoff, int dimension) {
+
+	float weight,tmp_weight;
+
+	float* coords = malloc(sizeof(float)*n*dimension);
+
+	assert(coords != NULL);
+
+	for (int i = 0; i < n; i++) {
+		for (int dim = 0; dim < dimension; dim++) {
+			coords[n*dim + i] = cust_rand();
 		}
-	}*/
+	}
+
+	Graph full_graph = create_graph(n);
+	for (int i = 0; i < n; i++) {
+		for (int j = i + 1; j < n; j++) {
+
+			weight = 0;
+			for (int dim = 0; dim < dimension; dim++) {
+				tmp_weight = (coords[n*dim + i] - coords[n*dim + j]);
+				weight += (tmp_weight*tmp_weight);
+			}
+
+			weight = sqrt(weight);
+
+			if (weight < cutoff) {
+				add_edge(full_graph, i,j,weight);
+				add_edge(full_graph, j,i,weight);
+			}
+		}
+	}
+	return full_graph;
+}
+
+int main(int argc, char* argv[]) {
+
 	srand(time(NULL));
 	cust_rand();
 
+	if(argc != 5) {
+		printf("Usage: ./randmst cutval numpoints numtrials dimension\n");
+		exit(0);
+	}
+
+	int iters = strtol(argv[3],NULL,10);
+	int n_vertices = strtol(argv[2],NULL,10);
+	float cutoff = strtof(argv[1],NULL);
+	int dimension = strtol(argv[4],NULL,10);
+
 	float max_overall_edge,max_tmp;
-	int iters = 1000;
-	int n_vertices = 333;
+	clock_t start,end;
+	Graph graph;
+
+	float edge_sum;
+	float total_edge_sum = 0;
 	for(int it = 0; it < iters; it++) {
-		Graph graph = initialize_full_graph(n_vertices);
+
+		if (dimension == 1) {
+			graph = initialize_full_graph(n_vertices,cutoff);
+		}
+		else {
+			graph = initialize_full_multi_graph(n_vertices,cutoff,dimension);
+		}
 
 		prim_shortest(graph,0);
-		max_tmp = prim_stats(graph);
+
+		edge_sum = 0;
+		max_tmp = prim_stats(graph,&edge_sum);
+		total_edge_sum += edge_sum;
 		if (max_overall_edge < max_tmp) {
 			max_overall_edge = max_tmp;
 		}
 	}
-	printf("Max for %d Vertices Over %d iterations: %f\n",n_vertices,iters,max_overall_edge);
-
+	// This commented print was used to find the cut values; obviously don't really need it to print currently.
+	//printf("Max for %d Vertices Over %d iterations: %f\n",n_vertices,iters,max_overall_edge);
+	printf("Average: %f, Numpoints: %d, Numtrials: %d, Dimension: %d\n",total_edge_sum / iters, n_vertices, iters, dimension);
+	printf("\n");
 }
 
 
