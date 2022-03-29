@@ -10,9 +10,6 @@
 #include "graph.h"
 #include "fib_heap.h"
 
-
-
-
 struct adj_list_node {
 	int out_node;
 	float weight;
