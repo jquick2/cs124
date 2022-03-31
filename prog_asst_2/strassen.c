@@ -4,6 +4,8 @@
 #include <time.h>
 #include <math.h>
 
+
+// Print neatly a dim x dim matrix mat, for rows start_r to end_r and start_c to end_c
 void print_matrix(int* mat, int dim, int start_r, int end_r, int start_c, int end_c) {
 
 	for (int i = start_r; i < end_r; i++) {
@@ -15,6 +17,7 @@ void print_matrix(int* mat, int dim, int start_r, int end_r, int start_c, int en
 	printf("\n\n");
 }
 
+// Standard multiplication of matrices each of dim x dim size, producing matout
 void stand_mult(int* mata, int* matb, int* matout, int dim) {
 	int sum;
 	// i row matrix a 
@@ -32,6 +35,8 @@ void stand_mult(int* mata, int* matb, int* matout, int dim) {
 }
 
 
+// Addition of matrices, giving matout, of size dim, going from r_start to r_end 
+// on the rows in each matrix (and correspondingly for c_start and c_end and columns)
 void stand_add(int* mata, int* matb, int* matout, int dim, int a_r_start, int a_r_end,
 	int a_c_start, int a_c_end, int b_r_start, int b_r_end, int b_c_start, int b_c_end) {
 
@@ -45,6 +50,8 @@ void stand_add(int* mata, int* matb, int* matout, int dim, int a_r_start, int a_
 	}
 }
 
+
+// Multiplication of two matrices using strassen 
 void strass_mult(int* mata, int* matb, int* matout, int dim) {
 
 	// Dimension of an M matrix
@@ -65,13 +72,14 @@ void strass_mult(int* mata, int* matb, int* matout, int dim) {
 
 }
 
+// RNG function used
 float cust_rand()
 {
     return (float)rand() / (float)RAND_MAX ;
 }
 
 
-
+// Initialize a dim x dim matrix
 void init_matrix(int* mat, int dim) {
 	// i rows
 	for (int i = 0; i < dim; i++) {
@@ -100,7 +108,6 @@ int main(int argc, char* argv[]) {
 
 	init_matrix(mat1,dim);
 	init_matrix(mat2,dim);
-
 
 	print_matrix(mat1,dim,0,dim,0,dim);
 	print_matrix(mat2,dim,0,dim,0,dim);
