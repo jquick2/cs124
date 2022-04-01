@@ -152,7 +152,7 @@ void strass_mult(int* mata, int* matb, int* matout, int dim) {
 // RNG function used
 float cust_rand()
 {
-    return (float)rand() / (float)RAND_MAX ;
+    return (float)rand() / (float) RAND_MAX ;
 }
 
 
