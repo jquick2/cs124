@@ -169,7 +169,6 @@ void init_matrix(int* mat, int dim) {
 
 int main(int argc, char* argv[]) {
 	clock_t start, end;
-	double cpu_time_used;
 	srand(time(NULL));
 	cust_rand();
 
@@ -187,19 +186,18 @@ int main(int argc, char* argv[]) {
 	init_matrix(mat1,dim);
 	init_matrix(mat2,dim);
 
-	// print_matrix(mat1,dim,0,dim,0,dim);
-	// print_matrix(mat2,dim,0,dim,0,dim);
+	print_matrix(mat1,dim,0,dim,0,dim);
+	print_matrix(mat2,dim,0,dim,0,dim);
 
-	start = clock();
+	//start = clock();
 	
 	strass_mult(mat1,mat2,mat3,dim);
 
-	end = clock();
-	clock_t difference = (double) (end - start);
-	cpu_time_used = difference / (double) CLOCKS_PER_SEC;
-	printf("end %lu\nstart %lu\nend-start %lu\nCLOCKS_PER_SEC %d\ncpu_time_used %f\n", end, start, difference, CLOCKS_PER_SEC, cpu_time_used);
+	//end = clock();
+	//double difference = (double) (end - start) / CLOCKS_PER_SEC;
+	//printf("%f seconds \n", difference);
 
-	// print_matrix(mat3,dim,0,dim,0,dim);
+	print_matrix(mat3,dim,0,dim,0,dim);
 
 	free(mat1);
 	free(mat2);
