@@ -189,6 +189,7 @@ int main(int argc, char* argv[]) {
 	print_matrix(mat1,dim,0,dim,0,dim);
 	print_matrix(mat2,dim,0,dim,0,dim);
 
+<<<<<<< HEAD
 	//start = clock();
 	
 	strass_mult(mat1,mat2,mat3,dim);
@@ -198,6 +199,24 @@ int main(int argc, char* argv[]) {
 	//printf("%f seconds \n", difference);
 
 	print_matrix(mat3,dim,0,dim,0,dim);
+=======
+	// for (var i = 0; i < 10; ) {
+	start =ㅤclock();
+	strass_mult(mat1,mat2,mat3,dim);
+	end = clock();
+	clock_t difference = (double) (end - start);
+	cpu_time_used = difference / (double) CLOCKS_PER_SEC;
+	printf("Time %f\n", cpu_time_used);
+
+	start = clock();
+	strass_mult(mat1,mat2,mat3,dim);
+	end = clock();
+	clock_t difference = (double) (end - start);
+	cpu_time_used = difference / (double) CLOCKS_PER_SEC;
+	printf("Time %f\n", cpu_time_used);
+	// }
+	// print_matrix(mat3,dim,0,dim,0,dim);
+>>>>>>> 308dc970ad387166f4c0441d6932b0cea830eec8
 
 	free(mat1);
 	free(mat2);
