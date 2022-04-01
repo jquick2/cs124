@@ -4,11 +4,10 @@
 #include <time.h>
 #include <math.h>
 #include <stdbool.h>
-
+#include <time.h>
 
 // Print neatly a dim x dim matrix mat, for rows start_r to end_r and start_c to end_c
 void print_matrix(int* mat, int dim, int start_r, int end_r, int start_c, int end_c) {
-
 	for (int i = start_r; i < end_r; i++) {
 		for (int j = start_c; j < end_c; j++) {
 			printf("%d ",mat[i*dim + j]);
@@ -71,7 +70,6 @@ void stand_add_helper(int*mata, int ar_half, int ac_half, int* matb, int br_half
 void stand_full_add_helper(int* mata, int* matb, int* matout, int dim, bool subtract) {
 	stand_add_helper(mata,-1,-1,matb,-1,-1,matout,dim,-1,true,subtract);
 }
-
 
 // Multiplication of two matrices using strassen 
 void strass_mult(int* mata, int* matb, int* matout, int dim) {
@@ -170,7 +168,8 @@ void init_matrix(int* mat, int dim) {
 }
 
 int main(int argc, char* argv[]) {
-
+	clock_t start, end;
+	double cpu_time_used;
 	srand(time(NULL));
 	cust_rand();
 
@@ -188,12 +187,19 @@ int main(int argc, char* argv[]) {
 	init_matrix(mat1,dim);
 	init_matrix(mat2,dim);
 
-	print_matrix(mat1,dim,0,dim,0,dim);
-	print_matrix(mat2,dim,0,dim,0,dim);
+	// print_matrix(mat1,dim,0,dim,0,dim);
+	// print_matrix(mat2,dim,0,dim,0,dim);
 
+	start = clock();
+	
 	strass_mult(mat1,mat2,mat3,dim);
 
-	print_matrix(mat3,dim,0,dim,0,dim);
+	end = clock();
+	clock_t difference = (double) (end - start);
+	cpu_time_used = difference / (double) CLOCKS_PER_SEC;
+	printf("end %lu\nstart %lu\nend-start %lu\nCLOCKS_PER_SEC %d\ncpu_time_used %f\n", end, start, difference, CLOCKS_PER_SEC, cpu_time_used);
+
+	// print_matrix(mat3,dim,0,dim,0,dim);
 
 	free(mat1);
 	free(mat2);
