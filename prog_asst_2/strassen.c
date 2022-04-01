@@ -4,7 +4,10 @@
 #include <time.h>
 #include <math.h>
 #include <stdbool.h>
-#include <time.h>
+
+int min3(int x, int y, int z){
+  return x < y ? (x < z ? x : z) : (y < z ? y : z);
+}
 
 // Print neatly a dim x dim matrix mat, for rows start_r to end_r and start_c to end_c
 void print_matrix(int* mat, int dim, int start_r, int end_r, int start_c, int end_c) {
@@ -18,16 +21,16 @@ void print_matrix(int* mat, int dim, int start_r, int end_r, int start_c, int en
 }
 
 // Standard multiplication of matrices each of dim x dim size, producing matout
-void stand_mult(int* mata, int* matb, int* matout, int dim) {
+void stand_mult(int* mata, int a_dim, int a_r_off, int a_c_off, int* matb, int b_dim, int b_r_off, int b_c_off, int* matout, int dim) {
 	int sum;
 	// i row matrix a 
 	for (int i = 0; i < dim; i++) {
-		// j row matrix b
+		// k column matrix b
 		for (int k = 0; k < dim; k++) {
-			// k combs for entry
+			// j combs
 			sum = 0;
 			for (int j = 0; j < dim; j++) {
-				sum += mata[i*dim + j] * matb[j*dim + k];
+				sum += mata[(i+a_r_off)*a_dim + (j+a_c_off)] * matb[(j+b_r_off)*b_dim + (k+b_c_off)];
 			}
 			matout[i*dim + k] = sum;
 		}
@@ -35,40 +38,26 @@ void stand_mult(int* mata, int* matb, int* matout, int dim) {
 }
 
 
-// Addition of matrices, giving matout, of size dim, going from r_start to r_end 
-// on the rows in each matrix (and correspondingly for c_start and c_end and columns)
-void stand_add(int* mata, int* matb, int* matout, int dim, int a_r_start, int a_r_end,
-	int a_c_start, int a_c_end, int b_r_start, int b_r_end, int b_c_start, int b_c_end, bool subtract) {
+// Addition of matrices, giving matout, with specified starting offsets for rows and columns
+// of a, b, and out matrices, as well as specified dimensions of the input matrices and a 
+// subtract boolean
+void stand_add(int* mata, int a_r_off, int a_c_off, int* matb, int b_r_off, int b_c_off,
+	int* matout, int out_r_off, int out_c_off, int a_dim, int b_dim, int out_dim, bool subtract) {
 
-	subtract = -(2*subtract - 1);
+	
+	int sign = -1*(2*(int)subtract - 1);
 
-	int row_len = a_r_end - a_r_start;
-	int col_len = a_c_end - a_c_start;
+	//printf("here\n");
+	int it_dim = min3(a_dim,b_dim,out_dim);
 
-	for (int i = 0; i < row_len; i++) {
-		for (int j = 0; j < col_len; j++) {
-			matout[i*row_len + j] = mata[(a_r_start+i)*dim + (a_c_start+j)] + (subtract * matb[(b_r_start+i)*dim + (b_c_start+j)]);
+	//printf("here2\n");
+
+	for (int i = 0; i < it_dim; i++) {
+		for (int j = 0; j < it_dim; j++) {
+			matout[(i+out_r_off)*out_dim + (j + out_c_off)] = mata[(a_r_off+i)*a_dim + (a_c_off+j)] + 
+			(sign * matb[(b_r_off+i)*b_dim + (b_c_off+j)]);
 		}
 	}
-}
-
-// This way you can just call A_11 like in strassens and you don't cross your eyes
-void stand_add_helper(int*mata, int ar_half, int ac_half, int* matb, int br_half, int bc_half, int* matout, int dim, int m_dim, bool full, bool subtract) { 
-	ar_half -= 1; ac_half -= 1; br_half -= 1; bc_half -= 1;
-
-	if (full == false) {
-		stand_add(mata, matb, matout, dim, ar_half*m_dim, (ar_half+1)*m_dim, ac_half*m_dim, (ac_half+1)*m_dim,
-		br_half*m_dim, (br_half+1)*m_dim, bc_half*m_dim, (bc_half+1)*m_dim, subtract);
-	}
-
-	// Don't want submatrices, the full thing
-	else {
-		stand_add(mata, matb, matout, dim, 0, dim, 0, dim, 0, dim, 0, dim,subtract);
-	}
-}
-
-void stand_full_add_helper(int* mata, int* matb, int* matout, int dim, bool subtract) {
-	stand_add_helper(mata,-1,-1,matb,-1,-1,matout,dim,-1,true,subtract);
 }
 
 // Multiplication of two matrices using strassen 
@@ -76,77 +65,72 @@ void strass_mult(int* mata, int* matb, int* matout, int dim) {
 
 	// Dimension of an M matrix
 	int m_dim = dim/2;
-	int* m1 = malloc((m_dim)*(m_dim)*sizeof(int));
-	int* m2 = malloc((m_dim)*(m_dim)*sizeof(int));
-	int* m3 = malloc((m_dim)*(m_dim)*sizeof(int));
-	int* m4 = malloc((m_dim)*(m_dim)*sizeof(int));
-	int* m5 = malloc((m_dim)*(m_dim)*sizeof(int));
-	int* m6 = malloc((m_dim)*(m_dim)*sizeof(int));
-	int* m7 = malloc((m_dim)*(m_dim)*sizeof(int));
+
+	int* p1 = malloc((m_dim)*(m_dim)*sizeof(int));
+	int* p2 = malloc((m_dim)*(m_dim)*sizeof(int));
+	int* p3 = malloc((m_dim)*(m_dim)*sizeof(int));
+	int* p4 = malloc((m_dim)*(m_dim)*sizeof(int));
 	int* addend1 = malloc((m_dim)*(m_dim)*sizeof(int));
 	int* addend2 = malloc((m_dim)*(m_dim)*sizeof(int));
-	int* c11 = malloc((m_dim)*(m_dim)*sizeof(int));
-	int* c12 = malloc((m_dim)*(m_dim)*sizeof(int));
-	int* c21 = malloc((m_dim)*(m_dim)*sizeof(int));
-	int* c22 = malloc((m_dim)*(m_dim)*sizeof(int));
+
+	// Calculating in order 1, 2, 3, 6, 5, 4, 7 allows us to only use 4
+	// mallocs for placeholders.
 
 	// M1
-	stand_add_helper(mata,1,1,mata,2,2,addend1,dim,m_dim,false,false);
-	stand_add_helper(matb,1,1,matb,2,2,addend2,dim,m_dim,false,false);
-	stand_mult(addend1,addend2,m1,m_dim);
+	stand_add(mata,0,0,mata,m_dim,m_dim,addend1,0,0,dim,dim,m_dim,false);
+	stand_add(matb,0,0,matb,m_dim,m_dim,addend2,0,0,dim,dim,m_dim,false);
+	stand_mult(addend1,m_dim,0,0,addend2,m_dim,0,0,p1,m_dim);
+
 
 	// M2
-	stand_add_helper(mata,2,1,mata,2,2,addend1,dim,m_dim,false,false);
-	stand_add_helper(matb,1,1,matb,2,2,addend2,dim,m_dim,false,false); // fix 
-	stand_mult(addend1,addend2,m2,m_dim);
+	stand_add(mata,m_dim,0,mata,m_dim,m_dim,addend1,0,0,dim,dim,m_dim,false);
+	stand_mult(addend1,m_dim,0,0,matb,dim,0,0,p2,m_dim);
 
 	// M3
-	stand_add_helper(mata,1,1,mata,2,2,addend1,dim,m_dim,false,false); // fix
-	stand_add_helper(matb,1,2,matb,2,2,addend2,dim,m_dim,false,false);
-	stand_mult(addend1,addend2,m3,m_dim);
-	
-	// M4
-	stand_add_helper(mata,1,1,mata,2,2,addend1,dim,m_dim,false,false); // fix
-	stand_add_helper(matb,2,1,matb,1,1,addend2,dim,m_dim,false,false);
-	stand_mult(addend1,addend2,m4,m_dim);
-
-	// M5
-	stand_add_helper(mata,1,1,mata,1,2,addend1,dim,m_dim,false,false);
-	stand_add_helper(matb,1,1,matb,2,2,addend2,dim,m_dim,false,false); // fix
-	stand_mult(addend1,addend2,m5,m_dim);
+	stand_add(matb,0,m_dim,matb,m_dim,m_dim,addend2,0,0,dim,dim,m_dim,true);
+	stand_mult(mata,dim,0,0,addend2,m_dim,0,0,p3,m_dim);
 
 	// M6
-	stand_add_helper(mata,2,1,mata,1,1,addend1,dim,m_dim,false,false);
-	stand_add_helper(matb,1,1,matb,1,2,addend2,dim,m_dim,false,false);
-	stand_mult(addend1,addend2,m6,m_dim);
-		
-	// M7
-	stand_add_helper(mata,1,2,mata,2,2,addend1,dim,m_dim,false,false);
-	stand_add_helper(matb,2,1,matb,2,2,addend2,dim,m_dim,false,false);
-	stand_mult(addend1,addend2,m7,m_dim);
-
-
-	// C11 
-	stand_full_add_helper(m1,m4,addend1,dim,false);
-	stand_full_add_helper(m5,m7,addend2,dim,false);
-	stand_full_add_helper(addend1,addend2,c11,dim,true);
-
-	// C12
-	stand_full_add_helper(m3,m5,c12,dim,false);
-
-	// C21
-	stand_full_add_helper(m2,m4,c21,dim,false);
+	stand_add(mata,m_dim,0,mata,0,0,addend1,0,0,dim,dim,m_dim,true);
+	stand_add(matb,0,0,matb,0,m_dim,addend2,0,0,dim,dim,m_dim,false);
+	stand_mult(addend1,m_dim,0,0,addend2,m_dim,0,0,p4,m_dim);
 
 	// C22
-	stand_full_add_helper(m2,m3,addend1,dim,false);
-	stand_full_add_helper(addend1,m6,addend2,dim,false);
-	stand_full_add_helper(m1,addend2,c22,dim,true);
+	stand_add(p1,0,0,p2,0,0,matout,m_dim,m_dim,m_dim,m_dim,dim,true);
+	stand_add(matout,m_dim,m_dim,p3,0,0,matout,m_dim,m_dim,dim,m_dim,dim,false);
+	stand_add(matout,m_dim,m_dim,p4,0,0,matout,m_dim,m_dim,dim,m_dim,dim,false);
+
+	// M5
+	stand_add(mata,0,0,mata,0,m_dim,addend1,0,0,dim,dim,m_dim,false);
+	stand_mult(addend1,m_dim,0,0,matb,dim,m_dim,m_dim,p4,m_dim);
+
+	// C12
+	stand_add(p3,0,0,p4,0,0,matout,0,m_dim,m_dim,m_dim,dim,false);
+
+	// M4
+	stand_add(matb,m_dim,0,matb,0,0,addend2,0,0,dim,dim,m_dim,true);
+	stand_mult(mata,dim,m_dim,m_dim,addend2,m_dim,0,0,p3,m_dim);
+
+	// C21
+	stand_add(p2,0,0,p3,0,0,matout,m_dim,0,m_dim,m_dim,dim,false);
+
+	// M7
+	stand_add(mata,0,m_dim,mata,m_dim,m_dim,addend1,0,0,dim,dim,m_dim,true);
+	stand_add(matb,m_dim,0,matb,m_dim,m_dim,addend2,0,0,dim,dim,m_dim,false);
+	stand_mult(addend1,m_dim,0,0,addend2,m_dim,0,0,p2,m_dim);
+
+	// C11
+	stand_add(p1,0,0,p3,0,0,matout,0,0,m_dim,m_dim,dim,false);
+	stand_add(matout,0,0,p4,0,0,matout,0,0,dim,m_dim,dim,true);
+	stand_add(matout,0,0,p2,0,0,matout,0,0,dim,m_dim,dim,false);
 
 
-	/*print_matrix(addend1,m_dim,0,m_dim,0,m_dim);
-	print_matrix(addend2,m_dim,0,m_dim,0,m_dim);
-	print_matrix(m1,m_dim,0,m_dim,0,m_dim);*/
-
+	free(p1);
+	free(p2);
+	free(p3);
+	free(p4);
+	free(addend1);
+	free(addend2);
 }
 
 // RNG function used
@@ -186,37 +170,35 @@ int main(int argc, char* argv[]) {
 	init_matrix(mat1,dim);
 	init_matrix(mat2,dim);
 
-	print_matrix(mat1,dim,0,dim,0,dim);
-	print_matrix(mat2,dim,0,dim,0,dim);
-
-<<<<<<< HEAD
-	//start = clock();
+	//print_matrix(mat1,dim,0,dim,0,dim);
+	//print_matrix(mat2,dim,0,dim,0,dim);
 	
 	strass_mult(mat1,mat2,mat3,dim);
 
-	//end = clock();
-	//double difference = (double) (end - start) / CLOCKS_PER_SEC;
-	//printf("%f seconds \n", difference);
+	//print_matrix(mat3,dim,0,dim,0,dim);
 
-	print_matrix(mat3,dim,0,dim,0,dim);
-=======
+	stand_mult(mat1,dim,0,0,mat2,dim,0,0,mat3,dim);
+
+	//print_matrix(mat3,dim,0,dim,0,dim);
+
+	double cpu_time_used;
+
 	// for (var i = 0; i < 10; ) {
-	start =ㅤclock();
+	/*start = clock();
 	strass_mult(mat1,mat2,mat3,dim);
 	end = clock();
-	clock_t difference = (double) (end - start);
+	double difference = (double) (end - start);
 	cpu_time_used = difference / (double) CLOCKS_PER_SEC;
 	printf("Time %f\n", cpu_time_used);
 
 	start = clock();
 	strass_mult(mat1,mat2,mat3,dim);
 	end = clock();
-	clock_t difference = (double) (end - start);
+	difference = (double) (end - start);
 	cpu_time_used = difference / (double) CLOCKS_PER_SEC;
-	printf("Time %f\n", cpu_time_used);
-	// }
-	// print_matrix(mat3,dim,0,dim,0,dim);
->>>>>>> 308dc970ad387166f4c0441d6932b0cea830eec8
+	printf("Time %f\n", cpu_time_used);*/
+
+
 
 	free(mat1);
 	free(mat2);
