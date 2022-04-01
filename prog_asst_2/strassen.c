@@ -186,6 +186,7 @@ int main(int argc, char* argv[]) {
 	int reps;
 
 	printf("\n\033[0;32mPrinting for wide range\033[0m\n\n");
+	// Wide range printing function
 	for (int i = 1; i <= 2048; i = i << 1) {
 		dim = i;
 		count++;
@@ -228,46 +229,57 @@ int main(int argc, char* argv[]) {
 		// print_matrix(mat3,dim,0,dim,0,dim);
 	}	
 
-	// int startRange = 64; // Can switch w/ args if needed
-	// int endRange = 256; // Not gauranteed to exactly end on this number
-	// int segments = 4; // Number of points to record from 64 to 256
-	// count = 0;
+	// Use the below for viewer smaller ranges
 
-	// printf("\n\033[0;32mNow printing for %d to %d\033[0m\n\n", startRange, endRange);
-	// for (int i = startRange; i <= endRange; i = i + (((endRange - startRange) / (segments - 1)))) {
-	// 	dim = i;
-	// 	// Initialize matrices
-	// 	mat1 = malloc(dim*dim*sizeof(int));
-	// 	mat2 = malloc(dim*dim*sizeof(int));
-	// 	mat3 = malloc(dim*dim*sizeof(int));
-	// 	init_matrix(mat1,dim);
-	// 	init_matrix(mat2,dim);
+	int startRange = 64; // Can switch w/ args if needed
+	int endRange = 256; // Not gauranteed to exactly end on this number
+	int segments = 5; // Number of points to record from 64 to 256
+	count = 0;
 
-	// 	// Print matrixes if necessary
-	// 	// print_matrix(mat1,dim,0,dim,0,dim);
-	// 	// print_matrix(mat2,dim,0,dim,0,dim);
-	// 	count++;
-	// 	// Strassen Timing
-	// 	printf("Loop %d and i = %d\n", count, i);
-	// 	startStrass = clock();
-	// 	strass_mult(mat1,mat2,mat3,dim);
-	// 	endStrass = clock();
-	// 	differenceStrass = (double) (endStrass - startStrass);
-	// 	timeStrass = differenceStrass / (double) CLOCKS_PER_SEC;
-	// 	printf("Strass Time \033[0;33m%f\n\033[0m", timeStrass);
+	printf("\n\033[0;32mNow printing for %d to %d\033[0m\n\n", startRange, endRange);
+	for (int i = startRange; i <= endRange; i = i + (((endRange - startRange) / (segments - 1)))) {
+		dim = i;
+		// Print matrixes if necessary
+		// print_matrix(mat1,dim,0,dim,0,dim);
+		// print_matrix(mat2,dim,0,dim,0,dim);
+		totalStrass = 0;
+		totalNormal = 0;
+		reps = 3;
+		count++;
+		
+		for (int j = 0; j < 5; j++) {
+			// Initialize matrices
+			mat1 = malloc(dim*dim*sizeof(int));
+			mat2 = malloc(dim*dim*sizeof(int));
+			mat3 = malloc(dim*dim*sizeof(int));
+			init_matrix(mat1,dim);
+			init_matrix(mat2,dim);
+		
+			// Strassen Timing
+			startStrass = clock();
+			strass_mult(mat1,mat2,mat3,dim);
+			endStrass = clock();
+			differenceStrass = (double) (endStrass - startStrass);
+			timeStrass = differenceStrass / (double) CLOCKS_PER_SEC;
+			totalStrass += timeStrass;
 
-	// 	// Normal Timing
-	// 	startNormal = clock();
-	// 	strass_mult(mat1,mat2,mat3,dim);
-	// 	endNormal = clock();
-	// 	differenceNormal = (double) (endNormal - startNormal);
-	// 	timeNormal = differenceNormal / (double) CLOCKS_PER_SEC;
-	// 	printf("Normal Time \033[0;33m%f\n\033[0m", timeNormal);
-	// 	printf("End loop %d\n\n", count);
+			// Normal Timing
+			startNormal = clock();
+			stand_mult(mat1,dim,0,0,mat2,dim,0,0,mat3,dim);
+			endNormal = clock();
+			differenceNormal = (double) (endNormal - startNormal);
+			timeNormal = differenceNormal / (double) CLOCKS_PER_SEC;
+			totalNormal += timeNormal;
 
-	// 	free(mat1);
-	// 	free(mat2);
-	// 	free(mat3);
-	// 	// print_matrix(mat3,dim,0,dim,0,dim);
-	// }
+			free(mat1);
+			free(mat2);
+			free(mat3);
+		}
+		printf("Loop %d and i = %d\n", count, i);
+		printf("Strass Time \033[0;33m%f\n\033[0m", totalStrass / (double) reps);
+		printf("Normal Time \033[0;33m%f\n\033[0m", totalNormal / (double) reps);
+		printf("End loop %d\n\n", count);
+		// print_matrix(mat3,dim,0,dim,0,dim);
+	}
+	printf("\n\033[0;37m------FINISHED------\n");
 }
