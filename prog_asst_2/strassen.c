@@ -190,15 +190,21 @@ int main(int argc, char* argv[]) {
 	// print_matrix(mat1,dim,0,dim,0,dim);
 	// print_matrix(mat2,dim,0,dim,0,dim);
 
-	start = clock();
-	
+	// for (var i = 0; i < 10; ) {
+	start =ㅤclock();
 	strass_mult(mat1,mat2,mat3,dim);
-
 	end = clock();
 	clock_t difference = (double) (end - start);
 	cpu_time_used = difference / (double) CLOCKS_PER_SEC;
-	printf("end %lu\nstart %lu\nend-start %lu\nCLOCKS_PER_SEC %d\ncpu_time_used %f\n", end, start, difference, CLOCKS_PER_SEC, cpu_time_used);
+	printf("Time %f\n", cpu_time_used);
 
+	start = clock();
+	strass_mult(mat1,mat2,mat3,dim);
+	end = clock();
+	clock_t difference = (double) (end - start);
+	cpu_time_used = difference / (double) CLOCKS_PER_SEC;
+	printf("Time %f\n", cpu_time_used);
+	// }
 	// print_matrix(mat3,dim,0,dim,0,dim);
 
 	free(mat1);
