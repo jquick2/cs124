@@ -4,9 +4,16 @@
 #include <time.h>
 #include <math.h>
 #include <stdbool.h>
+#include <math.h>
+#include <string.h>
+#include "strassen.h"
 
 int min3(int x, int y, int z){
   return x < y ? (x < z ? x : z) : (y < z ? y : z);
+}
+
+double log2(double x) {
+	return log(x)/log(2);
 }
 
 // Print neatly a dim x dim matrix mat, for rows start_r to end_r and start_c to end_c
@@ -21,7 +28,11 @@ void print_matrix(int* mat, int dim, int start_r, int end_r, int start_c, int en
 }
 
 // Standard multiplication of matrices each of dim x dim size, producing matout
-void stand_mult(int* mata, int a_dim, int a_r_off, int a_c_off, int* matb, int b_dim, int b_r_off, int b_c_off, int* matout, int dim) {
+// This version is just a triple for loop, no submatrices
+// I wanted to see if there was a major difference with a submatrix approach
+// That would reuse some addresses in memory in rapid succession with this 
+// Localization. Doesn't seem to make a big difference in the break point however
+void old_stand_mult(int* mata, int a_dim, int a_r_off, int a_c_off, int* matb, int b_dim, int b_r_off, int b_c_off, int* matout, int dim) {
 	int sum;
 	// i row matrix a 
 	for (int i = 0; i < dim; i++) {
@@ -37,20 +48,15 @@ void stand_mult(int* mata, int a_dim, int a_r_off, int a_c_off, int* matb, int b
 	}
 }
 
-
 // Addition of matrices, giving matout, with specified starting offsets for rows and columns
 // of a, b, and out matrices, as well as specified dimensions of the input matrices and a 
 // subtract boolean
 void stand_add(int* mata, int a_r_off, int a_c_off, int* matb, int b_r_off, int b_c_off,
 	int* matout, int out_r_off, int out_c_off, int a_dim, int b_dim, int out_dim, bool subtract) {
 
-	
 	int sign = -1*(2*(int)subtract - 1);
 
-	//printf("here\n");
 	int it_dim = min3(a_dim,b_dim,out_dim);
-
-	//printf("here2\n");
 
 	for (int i = 0; i < it_dim; i++) {
 		for (int j = 0; j < it_dim; j++) {
@@ -60,8 +66,97 @@ void stand_add(int* mata, int a_r_off, int a_c_off, int* matb, int b_r_off, int 
 	}
 }
 
-// Multiplication of two matrices using strassen 
-void strass_mult(int* mata, int* matb, int* matout, int dim) {
+// Multiplication with splitting into submatrices but naive 8 mults,
+// I found this method to be worse than the naive method in speed.
+// Still included the code for it though.
+void stand_mult(int* mata, int a_dim, int a_r_off, int a_c_off, int* matb, int b_dim, int b_r_off, int b_c_off, int* matout, int dim) {
+	// Sub-dimension for split
+	if (dim == 1) {
+		matout[0] = mata[a_r_off*a_dim + a_c_off] * matb[b_r_off*b_dim + b_c_off];
+	}
+
+	else {
+		int m_dim = dim / 2;
+		int* addend1 = malloc((m_dim)*(m_dim)*sizeof(int));
+		int* addend2 = malloc((m_dim)*(m_dim)*sizeof(int));
+		
+		// C11
+		stand_mult(mata,a_dim,a_r_off,a_c_off,matb,b_dim,b_r_off,b_c_off,addend1,m_dim);
+		stand_mult(mata,a_dim,a_r_off,m_dim+a_c_off,matb,b_dim,m_dim+b_r_off,b_c_off,addend2,m_dim);
+		stand_add(addend1,0,0,addend2,0,0,matout,0,0,m_dim,m_dim,dim,false);
+
+		// C12
+		stand_mult(mata,a_dim,a_r_off,a_c_off,matb,b_dim,b_r_off,m_dim+b_c_off,addend1,m_dim);
+		stand_mult(mata,a_dim,a_r_off,m_dim+a_c_off,matb,b_dim,m_dim+b_r_off,m_dim+b_c_off,addend2,m_dim);
+		stand_add(addend1,0,0,addend2,0,0,matout,0,m_dim,m_dim,m_dim,dim,false);
+
+		// C21
+		stand_mult(mata,a_dim,m_dim+a_r_off,a_c_off,matb,b_dim,b_r_off,b_c_off,addend1,m_dim);
+		stand_mult(mata,a_dim,m_dim+a_r_off,m_dim+a_c_off,matb,b_dim,m_dim+b_r_off,b_c_off,addend2,m_dim);
+		stand_add(addend1,0,0,addend2,0,0,matout,m_dim,0,m_dim,m_dim,dim,false);
+
+		// C22
+		stand_mult(mata,a_dim,m_dim+a_r_off,a_c_off,matb,b_dim,b_r_off,m_dim+b_c_off,addend1,m_dim);
+		stand_mult(mata,a_dim,m_dim+a_r_off,m_dim+a_c_off,matb,b_dim,m_dim+b_r_off,m_dim+b_c_off,addend2,m_dim);
+		stand_add(addend1,0,0,addend2,0,0,matout,m_dim,m_dim,m_dim,m_dim,dim,false);
+
+		free(addend1);
+		free(addend2);
+	}
+
+}
+
+int* resize_matrix(int* matrix, int old_dim, int new_dim) {
+	int* tmp = malloc((old_dim)*(old_dim)*sizeof(int));
+	memcpy(tmp,matrix,(old_dim)*(old_dim)*sizeof(int));
+	matrix = realloc(matrix,(new_dim)*(new_dim)*sizeof(int));
+
+	for (int i = 0; i < new_dim; i ++) {
+		for (int j = 0; j < new_dim; j ++) {
+			if (i < old_dim && j < old_dim) {
+				matrix[i*new_dim + j] = tmp[i*old_dim + j];
+			}
+			else {
+				matrix[i*new_dim + j] = 0;
+			}
+		}
+	}
+	free(tmp);
+	return matrix;
+}
+
+int* resize_matrix_down(int* matrix, int old_dim, int new_dim) {
+	int* tmp = malloc((old_dim)*(old_dim)*sizeof(int));
+	memcpy(tmp,matrix,(old_dim)*(old_dim)*sizeof(int));
+	matrix = realloc(matrix,(new_dim)*(new_dim)*sizeof(int));
+
+	for (int i = 0; i < new_dim; i++) {
+		for (int j = 0; j < new_dim; j++) {
+			matrix[i*new_dim + j] = tmp[i*old_dim + j];
+		}
+	}
+
+	free(tmp);
+	return matrix;
+}
+
+void choose_mult(int* mata, int a_dim, int a_r_off, int a_c_off,
+	int* matb, int b_dim, int b_r_off, int b_c_off, 
+	int* matout, int dim, int cutoff) {
+
+	if (dim <= cutoff || dim <= 1) {
+		old_stand_mult(mata,a_dim,a_r_off,a_c_off,matb,b_dim,b_r_off,b_c_off,matout,dim);
+	}
+	else {
+		strass_mult(mata,a_dim,a_r_off,a_c_off,matb,b_dim,b_r_off,b_c_off,matout,dim,cutoff);
+	}
+
+}
+
+// Muiplication of two matrices using strassen 
+void strass_mult(int* mata, int a_dim, int a_r_off, int a_c_off,
+	int* matb, int b_dim, int b_r_off, int b_c_off, 
+	int* matout, int dim, int cutoff) {
 
 	// Dimension of an M matrix
 	int m_dim = dim/2;
@@ -77,53 +172,54 @@ void strass_mult(int* mata, int* matb, int* matout, int dim) {
 	// mallocs for placeholders.
 
 	// M1
-	stand_add(mata,0,0,mata,m_dim,m_dim,addend1,0,0,dim,dim,m_dim,false);
-	stand_add(matb,0,0,matb,m_dim,m_dim,addend2,0,0,dim,dim,m_dim,false);
-	stand_mult(addend1,m_dim,0,0,addend2,m_dim,0,0,p1,m_dim);
-
+	stand_add(mata,a_r_off,a_c_off,mata,m_dim+a_r_off,m_dim+a_c_off,addend1,0,0,a_dim,a_dim,m_dim,false);
+	stand_add(matb,b_r_off,b_c_off,matb,m_dim+b_r_off,m_dim+b_c_off,addend2,0,0,b_dim,b_dim,m_dim,false);
+	choose_mult(addend1,m_dim,0,0,addend2,m_dim,0,0,p1,m_dim,cutoff);
 
 	// M2
-	stand_add(mata,m_dim,0,mata,m_dim,m_dim,addend1,0,0,dim,dim,m_dim,false);
-	stand_mult(addend1,m_dim,0,0,matb,dim,0,0,p2,m_dim);
+	stand_add(mata,m_dim+a_r_off,a_c_off,mata,m_dim+a_r_off,m_dim+a_c_off,addend1,0,0,a_dim,a_dim,m_dim,false);
+	choose_mult(addend1,m_dim,0,0,matb,b_dim,b_r_off,b_c_off,p2,m_dim,cutoff);
 
 	// M3
-	stand_add(matb,0,m_dim,matb,m_dim,m_dim,addend2,0,0,dim,dim,m_dim,true);
-	stand_mult(mata,dim,0,0,addend2,m_dim,0,0,p3,m_dim);
+	stand_add(matb,b_r_off,m_dim+b_c_off,matb,m_dim+b_r_off,m_dim+b_c_off,addend2,0,0,b_dim,b_dim,m_dim,true);
+	choose_mult(mata,a_dim,a_r_off,a_c_off,addend2,m_dim,0,0,p3,m_dim,cutoff);
 
 	// M6
-	stand_add(mata,m_dim,0,mata,0,0,addend1,0,0,dim,dim,m_dim,true);
-	stand_add(matb,0,0,matb,0,m_dim,addend2,0,0,dim,dim,m_dim,false);
-	stand_mult(addend1,m_dim,0,0,addend2,m_dim,0,0,p4,m_dim);
+	stand_add(mata,m_dim+a_r_off,a_c_off,mata,a_r_off,a_c_off,addend1,0,0,a_dim,a_dim,m_dim,true);
+	stand_add(matb,b_r_off,b_c_off,matb,b_r_off,m_dim+b_c_off,addend2,0,0,b_dim,b_dim,m_dim,false);
+	choose_mult(addend1,m_dim,0,0,addend2,m_dim,0,0,p4,m_dim,cutoff);
 
 	// C22
 	stand_add(p1,0,0,p2,0,0,matout,m_dim,m_dim,m_dim,m_dim,dim,true);
+
 	stand_add(matout,m_dim,m_dim,p3,0,0,matout,m_dim,m_dim,dim,m_dim,dim,false);
 	stand_add(matout,m_dim,m_dim,p4,0,0,matout,m_dim,m_dim,dim,m_dim,dim,false);
 
 	// M5
-	stand_add(mata,0,0,mata,0,m_dim,addend1,0,0,dim,dim,m_dim,false);
-	stand_mult(addend1,m_dim,0,0,matb,dim,m_dim,m_dim,p4,m_dim);
+	
+	stand_add(mata,a_r_off,a_c_off,mata,a_r_off,m_dim+a_c_off,addend1,0,0,a_dim,a_dim,m_dim,false);
+	choose_mult(addend1,m_dim,0,0,matb,b_dim,m_dim+b_r_off,m_dim+b_c_off,p4,m_dim,cutoff);
 
 	// C12
+
 	stand_add(p3,0,0,p4,0,0,matout,0,m_dim,m_dim,m_dim,dim,false);
 
 	// M4
-	stand_add(matb,m_dim,0,matb,0,0,addend2,0,0,dim,dim,m_dim,true);
-	stand_mult(mata,dim,m_dim,m_dim,addend2,m_dim,0,0,p3,m_dim);
+	stand_add(matb,m_dim+b_r_off,b_c_off,matb,b_r_off,b_c_off,addend2,0,0,b_dim,b_dim,m_dim,true);
+	choose_mult(mata,a_dim,m_dim+a_r_off,m_dim+a_c_off,addend2,m_dim,0,0,p3,m_dim,cutoff);
 
 	// C21
 	stand_add(p2,0,0,p3,0,0,matout,m_dim,0,m_dim,m_dim,dim,false);
 
 	// M7
-	stand_add(mata,0,m_dim,mata,m_dim,m_dim,addend1,0,0,dim,dim,m_dim,true);
-	stand_add(matb,m_dim,0,matb,m_dim,m_dim,addend2,0,0,dim,dim,m_dim,false);
-	stand_mult(addend1,m_dim,0,0,addend2,m_dim,0,0,p2,m_dim);
+	stand_add(mata,a_r_off,m_dim+a_c_off,mata,m_dim+a_r_off,m_dim+a_c_off,addend1,0,0,a_dim,a_dim,m_dim,true);
+	stand_add(matb,m_dim+b_r_off,b_c_off,matb,m_dim+b_r_off,m_dim+b_c_off,addend2,0,0,b_dim,b_dim,m_dim,false);
+	choose_mult(addend1,m_dim,0,0,addend2,m_dim,0,0,p2,m_dim,cutoff);
 
 	// C11
 	stand_add(p1,0,0,p3,0,0,matout,0,0,m_dim,m_dim,dim,false);
 	stand_add(matout,0,0,p4,0,0,matout,0,0,dim,m_dim,dim,true);
 	stand_add(matout,0,0,p2,0,0,matout,0,0,dim,m_dim,dim,false);
-
 
 	free(p1);
 	free(p2);
@@ -141,157 +237,240 @@ float cust_rand()
 
 
 // Initialize a dim x dim matrix
-void init_matrix(int* mat, int dim) {
+void init_matrix(int* mat, int dim, int new_dim) {
 	// i rows
-	for (int i = 0; i < dim; i++) {
+	for (int i = 0; i < new_dim; i++) {
 		// j columns
-		for (int j = 0; j < dim; j++) {
-			mat[dim*i + j] = (int) floor(3*cust_rand());
+		for (int j = 0; j < new_dim; j++) {
+			// Add padding if necessary
+			if (i < dim && j < dim) {
+				mat[new_dim*i + j] = (int) floor(3*cust_rand());
+			}
+			else {
+				mat[new_dim*i + j] = 0;
+			}
 		}
 	}
 }
 
-int main(int argc, char* argv[]) {
-	clock_t startStrass, endStrass, startNormal, endNormal;
-	double timeStrass, timeNormal;
-	clock_t differenceStrass, differenceNormal;
-	int* mat1;
-	int* mat2;
-	int* mat3;
-	srand(time(NULL));
-	cust_rand();
+bool check_power_of_2(int x) {
+	while (true) {
+		if (x % 2 != 0) {
+			return false;
+		}
+		x /= 2;
+		if (x == 1) {
+			return true;
+		}
+	}
+}
 
-	if (argc != 2) {
-		printf("Usage: ./strassen dim\n");
-		exit(0);
+
+void rand_gen(int dim, int cutoff) {
+	time_t start, end;
+	int new_dim;
+	// Allocate to the next power of 2, that way we don't have to realloc
+	if (check_power_of_2(dim) == true) {
+		new_dim = dim;
+	}
+	else {
+		new_dim = pow(2,floor(log2(dim))+1);
 	}
 
-	int dim = strtol(argv[1],NULL,10);
+	int* mat1 = malloc(new_dim*new_dim*sizeof(int));
+	int* mat2 = malloc(new_dim*new_dim*sizeof(int));
+	int* mat3 = malloc(new_dim*new_dim*sizeof(int));
 
-	int* mat1 = malloc(dim*dim*sizeof(int));
-	int* mat2 = malloc(dim*dim*sizeof(int));
-	int* mat3 = malloc(dim*dim*sizeof(int));
-
-	init_matrix(mat1,dim);
-	init_matrix(mat2,dim);
-
-	//print_matrix(mat1,dim,0,dim,0,dim);
-	//print_matrix(mat2,dim,0,dim,0,dim);
-	
-	strass_mult(mat1,mat2,mat3,dim);
-
-	//print_matrix(mat3,dim,0,dim,0,dim);
-
-	stand_mult(mat1,dim,0,0,mat2,dim,0,0,mat3,dim);
-
-	//print_matrix(mat3,dim,0,dim,0,dim);
-
-	double cpu_time_used;
-
-	// for (var i = 0; i < 10; ) {
-	/*start = clock();
-	strass_mult(mat1,mat2,mat3,dim);
-	end = clock();
-	double difference = (double) (end - start);
-	cpu_time_used = difference / (double) CLOCKS_PER_SEC;
-	printf("Time %f\n", cpu_time_used);
+	init_matrix(mat1,dim,new_dim);
+	init_matrix(mat2,dim,new_dim);
 
 	start = clock();
-	strass_mult(mat1,mat2,mat3,dim);
+	strass_mult(mat1,new_dim,0,0,mat2,new_dim,0,0,mat3,new_dim,cutoff);
 	end = clock();
-	difference = (double) (end - start);
-	cpu_time_used = difference / (double) CLOCKS_PER_SEC;
-	printf("Time %f\n", cpu_time_used);*/
+	double strass_time = ((double)(end-start))/CLOCKS_PER_SEC;
+	
+	// When we print, just print first dim rows and columns
+	// Rest is padding
+	//print_matrix(mat3,new_dim,0,dim,0,dim);
 
-
+	printf("%d, %d: %f\n",cutoff, dim, strass_time);
 
 	free(mat1);
 	free(mat2);
 	free(mat3);
+}
 
-	int count = 0;
 
-	printf("\n\033[0;32mPrinting for wide range\033[0m\n\n");
-	for (int i = 1; i < 20000; i = i << 1) {
-		// Initialize matrices
-		mat1 = malloc(dim*dim*sizeof(int));
-		mat2 = malloc(dim*dim*sizeof(int));
-		mat3 = malloc(dim*dim*sizeof(int));
-		init_matrix(mat1,dim);
-		init_matrix(mat2,dim);
+void file_gen(int dim, int cutoff, char* filename) {
 
-		// Print matrixes if necessary
-		// print_matrix(mat1,dim,0,dim,0,dim);
-		// print_matrix(mat2,dim,0,dim,0,dim);
-		count++;
-		// Strassen Timing
-		printf("Loop %d and i = %d\n", count, i);
-		startStrass = clock();
-		strass_mult(mat1,mat2,mat3,dim);
-		endStrass = clock();
-		differenceStrass = (double) (endStrass - startStrass);
-		// timeStrass = differenceStrass / (double) CLOCKS_PER_SEC;
-		timeStrass = 0;
-		printf("Strass Time \033[0;33m%f\n\033[0m", timeStrass);
+	int new_dim;
+	// Allocate to the next power of 2, that way we don't have to realloc
+	if (check_power_of_2(dim) == true) {
+		new_dim = dim;
+	}
+	else {
+		new_dim = pow(2,floor(log2(dim))+1);
+	}
+	// Initialize input/output matrices
+	int* mat1 = malloc(new_dim*new_dim*sizeof(int));
+	int* mat2 = malloc(new_dim*new_dim*sizeof(int));
+	int* mat3 = malloc(new_dim*new_dim*sizeof(int));
 
-		// Normal Timing
-		startNormal = clock();
-		strass_mult(mat1,mat2,mat3,dim);
-		endNormal = clock();
-		differenceNormal = (double) (endNormal - startNormal);
-		// timeNormal = differenceNormal / (double) CLOCKS_PER_SEC;
-		timeNormal = 0;
-		printf("Normal Time \033[0;33m%f\n\033[0m", timeNormal);
-		printf("End loop %d\n\n", count);
+	// Initialize the reading in of the file
+	FILE* f;
+	char* line = NULL;
+	size_t len = 64;
+	f = fopen(filename,"r");
+	if (f == NULL) {
+		printf("Invalid file. Exiting.\n");
+		exit(0);
+	}
 
-		free(mat1);
-		free(mat2);
-		free(mat3);
-		// print_matrix(mat3,dim,0,dim,0,dim);
-	}	
+	// Get Matrix A
+	for (int i = 0; i < new_dim; i++) {
+		for (int j = 0; j < new_dim; j++) {
+			if (i < dim && j < dim) {
+				getline(&line, &len, f);
+				mat1[i*new_dim + j] = strtol(line,NULL,10);	
+			}
+			else {
+				mat1[i*new_dim +j] = 0;
+			}
 
-	int startRange = 64; // Can switch w/ args if needed
-	int endRange = 256; // Not gauranteed to exactly end on this number
-	int segments = 4; // Number of points to record from 64 to 256
-	count = 0;
+		}
+	}
 
-	printf("\n\033[0;32mNow printing for %d to %d\033[0m\n\n", startRange, endRange);
-	for (int i = startRange; i <= endRange; i = i + (((endRange - startRange) / (segments - 1)))) {
+	// Get Matrix B
+	for (int i = 0; i < new_dim; i++) {
+		for (int j = 0; j < new_dim; j++) {
+			if (i < dim && j < dim) {
+				getline(&line, &len, f);
+				mat2[i*new_dim + j] = strtol(line,NULL,10);	
+			}
+			else {
+				mat2[i*new_dim +j] = 0;
+			}
+		}
+	}
+
+	strass_mult(mat1,new_dim,0,0,mat2,new_dim,0,0,mat3,new_dim,cutoff);
+
+	// Print output for the diagonals
+	for (int i = 0; i < dim; i ++) {
+		printf("%d\n",mat3[i*new_dim + i]);
+	}
+
+	// Print extra line
+	printf("\n");
+
+	free(mat1);
+	free(mat2);
+	free(mat3);
+	fclose(f);
+}
+
+
+void init_graph(int* mat, float prob) {
+	for (int i = 0; i < 1024; i++) {
+		for (int j = 0; j < 1024; j ++) {
+			if (j == i) {
+				mat[i*1024 +j] =0;
+			}
+			else {
+				mat[i*1024 +j] = cust_rand() < prob ? 1 : 0;
+			}
+		}
+	}
+
+}
+
+void triangle_count(int iterations) {
+	int cutoff = 32;
+	
+	int* mat = malloc(1024*1024*sizeof(int));
+	int* mat2 = malloc(1024*1024*sizeof(int));
+	int* mat3 = malloc(1024*1024*sizeof(int));
+
+	int* results = malloc(iterations*sizeof(int));
+
+	for (float p = 0.01; p <= 0.055; p += 0.01) {
+		printf("Probability %f\n",p);
+		int total_triangles = 0;
+		int min = INT_MAX;
+		int max = 0;
+		float var_sum = 0;
+		float variance;
+		for (int it = 0; it < iterations; it ++) {
+
+			init_graph(mat,p);
+			strass_mult(mat,1024,0,0,mat,1024,0,0,mat2,1024,cutoff);
+			strass_mult(mat,1024,0,0,mat2,1024,0,0,mat3,1024,cutoff);
+
+			int sum = 0;
+			int triangles = 0;
+			for (int i = 0; i < 1024; i++) {
+				sum += mat3[i*1024 + i];
+			}
 		
-		// Initialize matrices
-		mat1 = malloc(dim*dim*sizeof(int));
-		mat2 = malloc(dim*dim*sizeof(int));
-		mat3 = malloc(dim*dim*sizeof(int));
-		init_matrix(mat1,dim);
-		init_matrix(mat2,dim);
+			triangles = sum / 6;
+			results[it] = triangles;
 
-		// Print matrixes if necessary
-		// print_matrix(mat1,dim,0,dim,0,dim);
-		// print_matrix(mat2,dim,0,dim,0,dim);
-		count++;
-		// Strassen Timing
-		printf("Loop %d and i = %d\n", count, i);
-		startStrass = clock();
-		strass_mult(mat1,mat2,mat3,dim);
-		endStrass = clock();
-		differenceStrass = (double) (endStrass - startStrass);
-		// timeStrass = differenceStrass / (double) CLOCKS_PER_SEC;
-		timeStrass = 0;
-		printf("Strass Time \033[0;33m%f\n\033[0m", timeStrass);
+		}	
+		for (int it = 0; it <iterations; it++) {
+			total_triangles += results[it];
+			if (results[it] < min) {
+				min = results[it];
+			}
+			if (results[it] > max) {
+				max = results[it];
+			}
+		}
+		float average = total_triangles/iterations;
 
-		// Normal Timing
-		startNormal = clock();
-		strass_mult(mat1,mat2,mat3,dim);
-		endNormal = clock();
-		differenceNormal = (double) (endNormal - startNormal);
-		// timeNormal = differenceNormal / (double) CLOCKS_PER_SEC;
-		timeNormal = 0;
-		printf("Normal Time \033[0;33m%f\n\033[0m", timeNormal);
-		printf("End loop %d\n\n", count);
+		printf("Average: %f triangles \n", average);
+		printf("Min: %d triangles \n", min);
+		printf("Max: %d triangles \n", max);
 
-		free(mat1);
-		free(mat2);
-		free(mat3);
-		// print_matrix(mat3,dim,0,dim,0,dim);
+		for (int it = 0; it < iterations; it ++) {
+			var_sum += pow(results[it] - average,2);
+		}
+		variance = var_sum / (iterations - 1);
+		printf("Std Deviation: %f \n", sqrt(variance));
+	}
+
+	free(mat);
+	free(mat2);
+	free(mat3);
+	free(results);
+}
+
+int main(int argc, char* argv[]) {
+
+	// Set seed
+	srand(time(NULL));
+	cust_rand();
+
+	if (argc < 3 || argc > 4) {
+		printf("Usage: ./strassen cutoff dim/iterations filename\n");
+		exit(0);
+	}
+
+	else {
+		int cutoff = strtol(argv[1],NULL,10);
+		if (cutoff < 0) {
+			int iterations = strtol(argv[2],NULL,10);
+			triangle_count(iterations);
+
+		}
+		else {
+			int dim = strtol(argv[2],NULL,10);
+			if (argc == 3) {
+				rand_gen(dim,cutoff);
+			}
+			else {
+				char* infile_name = argv[3];
+				file_gen(dim,cutoff,infile_name);
+			}	
+		}
 	}
 }
